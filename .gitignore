@@ -216,4 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+<<<<<<< HEAD
 venv310/
+=======
+>>>>>>> 2b5b180cf8fbc8213fb69ee3c9a97b20396c4ca4
