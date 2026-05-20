@@ -1,6 +1,6 @@
 import uuid
 import streamlit as st
-from paddleocr import PaddleOCR
+import pytesseract
 from PIL import Image
 import re
 import pandas as pd
@@ -580,7 +580,7 @@ st.markdown("""
 # -----------------------------
 @st.cache_resource
 def load_ocr():
-    return PaddleOCR(use_angle_cls=True, lang='en')
+    return pytesseract
 
 ocr = load_ocr()
 
@@ -764,7 +764,8 @@ if uploaded_files:
             for img in images:
                 temp_path = f"temp_{uuid.uuid4().hex}.png"
                 img.save(temp_path)
-                result = ocr.ocr(temp_path)
+                text = ocr.image_to_string(Image.open(temp_path))
+                lines = [clean_text(l) for l in text.splitlines() if l.strip()]
 
                 lines = []
                 for line in result:
