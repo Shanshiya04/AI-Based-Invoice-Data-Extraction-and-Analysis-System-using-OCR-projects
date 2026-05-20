@@ -1,8 +1,8 @@
 streamlit
 paddleocr==2.7.0.3
-paddlepaddle
-opencv-python-headless
-numpy
+paddlepaddle==2.6.2
+opencv-python-headless==4.6.0.66
+numpy==1.23.5
 pandas
 Pillow
 pdf2image
