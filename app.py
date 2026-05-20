@@ -1,6 +1,7 @@
 import uuid
 import streamlit as st
 import pytesseract
+pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
 from PIL import Image
 import re
 import pandas as pd
@@ -644,66 +645,34 @@ def extract_fields(lines):
                     total = m.group().replace(" ", "")
     return vendor, date, total
 
-def extract_items(ocr_result):
+def extract_items(lines):
     """
-    Extract line items from OCR result.
+    Extract line items from plain text lines (pytesseract output).
     Returns (table_items, normal_items):
-      - table_items: list of dicts with Item / Qty / Price  (structured rows)
-      - normal_items: list of plain strings (fallback)
+      - table_items: list of dicts with Item / Qty / Price
+      - normal_items: list of plain strings
     """
-    rows = {}
-    for line in ocr_result:
-        for word in line:
-            text = word[1][0]
-            x = int(word[0][0][0])
-            y = int(word[0][0][1])
-            key = y // 20
-            rows.setdefault(key, []).append((x, text))
-
-    structured = []
-    for k in sorted(rows):
-        row = sorted(rows[k], key=lambda x: x[0])
-        structured.append([t[1] for t in row])
-
     table_items = []
-    for r in structured:
-        item, qty, price = "", None, None
-        for t in r:
-            if re.search(r'[\$₹]', t):
-                p = re.search(r'(\d+(?:\.\d+)?)', t)
-                if p:
-                    # preserve currency symbol
-                    sym = re.search(r'[\$₹]', t).group()
-                    price = sym + p.group(1)
-            elif re.fullmatch(r'\d+', t):
-                if not qty:
-                    qty = t
-            else:
-                item += " " + t
-
-        if item.strip() and qty and price:
-            table_items.append({
-                "Item": item.strip(),
-                "Qty": qty,
-                "Price": price
-            })
-
     normal_items = []
-    if not table_items:
-        skip_keywords = ["total", "date", "invoice", "description", "global", "pvt", "ltd",
-                         "tax", "gst", "subtotal", "amount due", "bill to", "ship to"]
-        for r in structured:
-            line = " ".join(r)
-            line = re.sub(r'([a-z])([0-9])', r'\1 \2', line)
-            line = re.sub(r'([0-9])([a-zA-Z])', r'\1 \2', line)
-            line = re.sub(r'\s+', ' ', line).strip()
 
-            if any(x in line.lower() for x in skip_keywords):
-                continue
-            if re.search(r'\d', line) and len(line) > 4:
-                normal_items.append(line)
+    for l in lines:
+        # Look for currency and numbers
+        if re.search(r'[\$₹]', l):
+            price_match = re.search(r'(\d+(?:\.\d+)?)', l)
+            qty_match = re.search(r'\b\d+\b', l)
+            if price_match and qty_match:
+                table_items.append({
+                    "Item": l,
+                    "Qty": qty_match.group(),
+                    "Price": re.search(r'[\$₹]\s?\d+(?:\.\d+)?', l).group()
+                })
+            else:
+                normal_items.append(l)
+        else:
+            normal_items.append(l)
 
     return table_items, normal_items
+
 
 def build_items_html(table_items, normal_items):
     """Render items section HTML."""
@@ -767,13 +736,12 @@ if uploaded_files:
                 text = ocr.image_to_string(Image.open(temp_path))
                 lines = [clean_text(l) for l in text.splitlines() if l.strip()]
 
-                lines = []
-                for line in result:
-                    for word in line:
-                        lines.append(clean_text(word[1][0]))
-
                 vendor, date, total = extract_fields(lines)
-                table_items, normal_items = extract_items(result)
+
+                   # Adapt extract_items to work with text lines
+                table_items, normal_items = extract_items(lines)
+
+                
 
                 num_items  = len(table_items) if table_items else len(normal_items)
                 total_qty  = (sum(int(it["Qty"]) for it in table_items if it["Qty"].isdigit())
